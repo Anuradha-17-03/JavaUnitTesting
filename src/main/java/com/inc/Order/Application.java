@@ -1,4 +1,4 @@
-package com.company.order;
+package com.inc.Order;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

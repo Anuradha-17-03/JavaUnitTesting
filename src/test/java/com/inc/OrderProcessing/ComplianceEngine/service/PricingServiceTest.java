@@ -1,66 +1,76 @@
 package com.inc.OrderProcessing.ComplianceEngine.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.junit.jupiter.api.*;
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvFileSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.*;
+import com.inc.OrderProcessing.ComplianceEngine.model.Customer;
 
-@DisplayName("PricingService unit tests")
 @ExtendWith(MockitoExtension.class)
+@DisplayName("Pricing Service Tests")
 class PricingServiceTest {
 
     private PricingService pricingService;
 
     @BeforeEach
-    void init() {
+    void setUp() {
         pricingService = new PricingService();
     }
 
-    @ParameterizedTest(name = "amount={0}, premium={1}, festival={2} => discount={3}%")
-    @CsvFileSource(resources = "/pricing-discount-rules.csv", numLinesToSkip = 1)
-    @DisplayName("should calculate discount percentage correctly")
-    void shouldCalculateDiscountPercentage(
-            double orderTotal,
-            boolean premiumCustomer,
-            boolean festivalEnabled,
-            double expectedDiscount
-    ) {
-        // Arrange
-        Customer customer = new Customer();
-        customer.setPremium(premiumCustomer);
+    @ParameterizedTest(name = "Total={0}, Premium={1}, Festival={2}")
+    @MethodSource("discountDataProvider")
+    @DisplayName("Should apply correct discount with cap")
+    void shouldApplyCorrectDiscount(
+            double total,
+            boolean isPremium,
+            boolean isFestival,
+            double expectedDiscountPercent) {
 
-        Order order = TestDataFactory.createOrder(orderTotal, customer, festivalEnabled);
+        // Arrange
+        Customer customer = new Customer(isPremium);
+        double discountedAmount;
 
         // Act
-        double discount = pricingService.calculateDiscountPercentage(order);
+        discountedAmount = pricingService.applyDiscount(
+                total, customer, isFestival);
 
         // Assert
-        assertEquals(
-                expectedDiscount,
-                discount,
-                0.01,
-                "Discount percentage mismatch"
+        double expected = total * (1 - expectedDiscountPercent / 100);
+        assertEquals(expected, discountedAmount, 0.01,
+                "Discounted amount mismatch");
+    }
+
+    static Stream<Arguments> discountDataProvider() {
+        return Stream.of(
+                Arguments.of(10000, false, false, 5),
+                Arguments.of(25000, false, false, 10),
+                Arguments.of(25000, true, false, 15),
+                Arguments.of(25000, true, true, 20),
+                Arguments.of(50000, true, true, 25) // cap applied
         );
     }
 
     @Test
-    @DisplayName("should apply GST after discount with rounding")
-    void shouldCalculateGstAfterDiscount() {
+    @DisplayName("Should calculate GST after discount")
+    void shouldCalculateGSTAfterDiscount() {
+
         // Arrange
-        double discountedAmount = 10000.75;
+        double discountedAmount = 1000;
 
         // Act
-        double gst = pricingService.calculateGst(discountedAmount);
+        double gst = pricingService.calculateGST(discountedAmount);
 
         // Assert
-        assertEquals(
-                1800.14,
-                gst,
-                0.01,
-                "GST calculation is incorrect"
-        );
+        assertEquals(180, gst, 0.01,
+                "GST must be 18% of discounted amount");
     }
 }

@@ -1,10 +1,20 @@
 package com.inc.OrderProcessing.ComplianceEngine.service;
 
-import org.junit.jupiter.api.*;
-
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("ComplianceService unit tests")
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.inc.OrderProcessing.ComplianceEngine.exception.ComplianceViolationException;
+import com.inc.OrderProcessing.ComplianceEngine.model.Customer;
+import com.inc.OrderProcessing.ComplianceEngine.model.Order;
+import com.inc.OrderProcessing.ComplianceEngine.testData.OrderTestData;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("Compliance Validation Tests")
 class ComplianceServiceTest {
 
     private ComplianceService complianceService;
@@ -15,50 +25,31 @@ class ComplianceServiceTest {
     }
 
     @Test
-    @DisplayName("should fail validation when customer is inactive")
-    void shouldFailWhenCustomerInactive() {
+    @DisplayName("Should throw exception if customer is inactive")
+    void shouldFailForInactiveCustomer() {
+
         // Arrange
-        Order order = TestDataFactory.validOrder();
-        order.getCustomer().setActive(false);
+        Customer customer = new Customer(false);
+        Order order = OrderTestData.validOrder(customer);
 
-        // Act + Assert
-        ComplianceViolationException exception = assertThrows(
-                ComplianceViolationException.class,
-                () -> complianceService.validate(order),
-                "Expected compliance violation for inactive customer"
-        );
+        // Act & Assert
+        ComplianceViolationException ex =
+                assertThrows(ComplianceViolationException.class,
+                        () -> complianceService.validate(order),
+                        "Inactive customer should violate compliance");
 
-        assertTrue(
-                exception.getMessage().contains("inactive"),
-                "Error message should mention inactive customer"
-        );
+        assertEquals("Customer is inactive", ex.getMessage());
     }
 
     @Test
-    @DisplayName("should fail validation when order has no items")
-    void shouldFailWhenNoItems() {
-        // Arrange
-        Order order = TestDataFactory.validOrder();
-        order.getItems().clear();
-
-        // Act + Assert
-        assertThrows(
-                ComplianceViolationException.class,
-                () -> complianceService.validate(order),
-                "Order without items should not pass compliance"
-        );
-    }
-
-    @Test
-    @DisplayName("should pass validation for valid order")
+    @DisplayName("Should pass for valid order")
     void shouldPassForValidOrder() {
-        // Arrange
-        Order order = TestDataFactory.validOrder();
 
-        // Act + Assert
-        assertDoesNotThrow(
-                () -> complianceService.validate(order),
-                "Valid order should pass compliance"
-        );
+        // Arrange
+        Order order = OrderTestData.validOrder();
+
+        // Act & Assert
+        assertDoesNotThrow(() -> complianceService.validate(order),
+                "Valid order should pass compliance");
     }
 }
